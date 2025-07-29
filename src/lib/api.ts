@@ -209,22 +209,25 @@ export const api = {
       // CORS 문제 및 인증 문제로 인해 실제 API 호출이 실패할 수 있음
       // 테스트를 위해 목업 데이터를 사용하되, 실제 API 데이터와 유사한 형태로 변환
       
-      // 실제 API 호출 시도 (디버깅용)
+      // Next.js API 라우트를 통한 Harbor API 호출
       try {
-        const response = await fetch('https://registry-dev.k-paas.org/api/v2.0/projects', {
-          headers: {
-            'accept': 'application/json',
-            'authorization': 'Basic YWRtaW46YWRtaW4=', // admin:admin Base64 인코딩
-            'Access-Control-Allow-Origin': '*' // CORS 헤더 추가 (클라이언트에서는 작동하지 않을 수 있음)
-          }
-        });
+        const response = await fetch('/api/harbor/projects');
         
         if (response.ok) {
           const projects = await response.json();
-          console.log('실제 API에서 받은 프로젝트 데이터:', projects);
+          console.log('Harbor API에서 받은 프로젝트 데이터:', projects);
+          
+          // 실제 API 데이터를 사용하여 결과 반환
+          const projectCounts = projects.map((project: any) => ({
+            name: project.name,
+            repo_count: project.repo_count || 0,
+            project_id: project.project_id
+          }));
+          
+          return projectCounts;
         }
       } catch (apiError) {
-        console.error('API 호출 시도 실패 (예상된 오류):', apiError);
+        console.error('Harbor API 호출 실패, 목업 데이터 사용:', apiError);
       }
       
       // 목업 데이터를 실제 API 형식으로 변환

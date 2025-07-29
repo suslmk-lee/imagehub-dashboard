@@ -117,11 +117,11 @@
             const token = sessionStorage.getItem('accessToken');
             if (token) {
                 // URL 파라미터로 토큰 전달
-                const dashboardUrl = `https://dashboard.133.186.152.47.nip.io?token=${encodeURIComponent(token)}`;
+                const dashboardUrl = `http://localhost:3000?token=${encodeURIComponent(token)}`;
                 window.open(dashboardUrl, '_blank');
                 log('토큰과 함께 대시보드를 새 창에서 열었습니다.');
             } else {
-                window.open('https://dashboard.133.186.152.47.nip.io', '_blank');
+                window.open('http://localhost:3000', '_blank');
                 log('토큰 없이 대시보드를 새 창에서 열었습니다.');
             }
         }

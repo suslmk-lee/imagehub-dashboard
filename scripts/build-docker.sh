@@ -30,7 +30,7 @@ log_error() {
 }
 
 # 기본 변수 설정
-REGISTRY_URL=${REGISTRY_URL:-"registry-dev.k-paas.org"}
+REGISTRY_URL=${REGISTRY_URL:-"hub.27.96.159.239.nip.io"}
 PROJECT_NAME=${PROJECT_NAME:-"kpaas/imagehub-dashboard"}
 IMAGE_NAME="${REGISTRY_URL}/${PROJECT_NAME}"
 VERSION=${VERSION:-$(date +%Y%m%d-%H%M%S)}
