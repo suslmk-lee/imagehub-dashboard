@@ -1,0 +1,152 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: imagehub-dashboard
+  namespace: imagehub-dashboard
+  labels:
+    app: imagehub-dashboard
+    version: "1.0.0"
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: imagehub-dashboard
+  template:
+    metadata:
+      labels:
+        app: imagehub-dashboard
+        version: "1.0.0"
+      annotations:
+        # Force pod restart on configmap/secret changes
+        checksum/config: "change-me-on-config-update"
+    spec:
+      # Security context
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+      
+      # Container specification
+      containers:
+      - name: imagehub-dashboard
+        image: registry-dev.k-paas.org/kpaas/imagehub-dashboard:latest
+        imagePullPolicy: Always
+        
+        # Ports
+        ports:
+        - name: http
+          containerPort: 3000
+          protocol: TCP
+        
+        # Environment variables from ConfigMap
+        envFrom:
+        - configMapRef:
+            name: imagehub-dashboard-config
+        - secretRef:
+            name: imagehub-dashboard-secrets
+            optional: true
+        
+        # Resource limits and requests
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        
+        # Health checks
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: http
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: http
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 3
+        
+        # Startup probe (for slow-starting applications)
+        startupProbe:
+          httpGet:
+            path: /api/health
+            port: http
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 10
+        
+        # Security context for container
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          runAsUser: 1001
+          seccompProfile:
+            type: RuntimeDefault
+          capabilities:
+            drop:
+            - ALL
+        
+        # Volume mounts (if needed)
+        # volumeMounts:
+        # - name: tmp
+        #   mountPath: /tmp
+        # - name: cache
+        #   mountPath: /app/.next/cache
+      
+      # Volumes (if needed)
+      # volumes:
+      # - name: tmp
+      #   emptyDir: {}
+      # - name: cache
+      #   emptyDir: {}
+      
+      # Image pull secrets (if using private registry)
+      # imagePullSecrets:
+      # - name: registry-secret
+      
+      # Node selection (optional)
+      # nodeSelector:
+      #   kubernetes.io/os: linux
+      
+      # Tolerations (optional)
+      # tolerations:
+      # - key: "node-role.kubernetes.io/worker"
+      #   operator: "Equal"
+      #   value: "true"
+      #   effect: "NoSchedule"
+      
+      # Pod anti-affinity for high availability
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - imagehub-dashboard
+              topologyKey: kubernetes.io/hostname

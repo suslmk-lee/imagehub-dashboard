@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Authentication Test</title>
+</head>
+<body>
+    <h1>인증 테스트</h1>
+    
+    <div>
+        <h2>현재 토큰 상태:</h2>
+        <div id="token-status"></div>
+    </div>
+    
+    <div>
+        <h2>테스트 토큰 설정:</h2>
+        <button onclick="setTestToken()">테스트 토큰 설정</button>
+        <button onclick="clearToken()">토큰 삭제</button>
+        <button onclick="openDashboard()">대시보드 열기 (새탭)</button>
+        <button onclick="openDashboardSameTab()">대시보드 열기 (같은탭)</button>
+    </div>
+    
+    <div>
+        <h2>디버깅:</h2>
+        <button onclick="checkStorages()">스토리지 전체 확인</button>
+        <button onclick="testDirectAccess()">대시보드 직접 접근 테스트</button>
+    </div>
+    
+    <div>
+        <h2>로그:</h2>
+        <div id="log" style="background: #f0f0f0; padding: 10px; margin-top: 10px; height: 200px; overflow-y: scroll; font-family: monospace;"></div>
+    </div>
+
+    <script>
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const time = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `[${time}] ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        function updateTokenStatus() {
+            const sessionToken = sessionStorage.getItem('accessToken');
+            const localToken = localStorage.getItem('accessToken');
+            const statusDiv = document.getElementById('token-status');
+            
+            if (sessionToken || localToken) {
+                const token = sessionToken || localToken;
+                statusDiv.innerHTML = `<strong>토큰 있음:</strong> ${token.substring(0, 50)}...<br>
+                    <small>Session: ${sessionToken ? '✅' : '❌'}, Local: ${localToken ? '✅' : '❌'}</small>`;
+                statusDiv.style.color = 'green';
+            } else {
+                statusDiv.innerHTML = '<strong>토큰 없음</strong><br><small>Session: ❌, Local: ❌</small>';
+                statusDiv.style.color = 'red';
+            }
+        }
+        
+        // Base64URL 인코딩 함수 (JWT 표준)
+        function base64UrlEncode(str) {
+            return btoa(str)
+                .replace(/\+/g, '-')
+                .replace(/\//g, '_')
+                .replace(/=/g, '');
+        }
+
+        function setTestToken() {
+            // 유효한 테스트 JWT 토큰 (만료되지 않은 상태로)
+            const testPayload = {
+                exp: Math.floor(Date.now() / 1000) + 3600, // 1시간 후 만료
+                iat: Math.floor(Date.now() / 1000),
+                sub: "test-user-id",
+                preferred_username: "testuser",
+                roles: ["cp-cluster-admin-role"],
+                groups: ["admin"],
+                email_verified: true,
+                realm_access: {
+                    roles: ["cp-cluster-admin-role"]
+                },
+                resource_access: {},
+                scope: "openid",
+                jti: "test-jwt-id",
+                iss: "https://registry-keycloak.k-paas.org/realms/cp-realm",
+                aud: ["cp-client"],
+                typ: "Bearer",
+                azp: "cp-client",
+                sid: "test-session-id",
+                acr: "1",
+                "allowed-origins": ["*"]
+            };
+            
+            // 올바른 JWT 생성 (Base64URL 인코딩 사용)
+            const header = base64UrlEncode(JSON.stringify({ alg: "RS256", typ: "JWT" }));
+            const payload = base64UrlEncode(JSON.stringify(testPayload));
+            const signature = base64UrlEncode("test-signature-data");
+            
+            const testToken = `${header}.${payload}.${signature}`;
+            
+            // 테스트를 위해 localStorage도 함께 설정
+            sessionStorage.setItem('accessToken', testToken);
+            localStorage.setItem('accessToken', testToken);
+            
+            updateTokenStatus();
+            log('올바른 형식의 테스트 토큰이 설정되었습니다.');
+            log('sessionStorage와 localStorage 모두에 저장됨');
+            log('토큰 길이: ' + testToken.length);
+            log('헤더: ' + header.substring(0, 30) + '...');
+            log('페이로드: ' + payload.substring(0, 30) + '...');
+        }
+        
+        function clearToken() {
+            sessionStorage.removeItem('accessToken');
+            localStorage.removeItem('accessToken');
+            updateTokenStatus();
+            log('토큰이 삭제되었습니다 (sessionStorage, localStorage 모두).');
+        }
+        
+        function openDashboard() {
+            const token = sessionStorage.getItem('accessToken');
+            if (token) {
+                // URL 파라미터로 토큰 전달
+                const dashboardUrl = `https://dashboard.133.186.152.47.nip.io?token=${encodeURIComponent(token)}`;
+                window.open(dashboardUrl, '_blank');
+                log('토큰과 함께 대시보드를 새 창에서 열었습니다.');
+            } else {
+                window.open('https://dashboard.133.186.152.47.nip.io', '_blank');
+                log('토큰 없이 대시보드를 새 창에서 열었습니다.');
+            }
+        }
+        
+        function openDashboardSameTab() {
+            const token = sessionStorage.getItem('accessToken');
+            if (token) {
+                // URL 파라미터로 토큰 전달
+                const dashboardUrl = `https://dashboard.133.186.152.47.nip.io?token=${encodeURIComponent(token)}`;
+                window.location.href = dashboardUrl;
+                log('토큰과 함께 같은 탭에서 대시보드로 이동합니다.');
+            } else {
+                window.location.href = 'https://dashboard.133.186.152.47.nip.io';
+                log('토큰 없이 같은 탭에서 대시보드로 이동합니다.');
+            }
+        }
+        
+        function checkStorages() {
+            log('=== 스토리지 전체 확인 ===');
+            
+            // SessionStorage 확인
+            log('SessionStorage:');
+            for (let i = 0; i < sessionStorage.length; i++) {
+                const key = sessionStorage.key(i);
+                const value = sessionStorage.getItem(key);
+                log(`  ${key}: ${value ? value.substring(0, 50) + '...' : 'null'}`);
+            }
+            
+            // LocalStorage 확인
+            log('LocalStorage:');
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                const value = localStorage.getItem(key);
+                log(`  ${key}: ${value ? value.substring(0, 50) + '...' : 'null'}`);
+            }
+            
+            log('=== 확인 완료 ===');
+        }
+        
+        function testDirectAccess() {
+            const token = sessionStorage.getItem('accessToken');
+            if (token) {
+                const testUrl = `https://dashboard.133.186.152.47.nip.io?token=${encodeURIComponent(token)}&debug=true`;
+                log('생성된 테스트 URL:');
+                log(testUrl);
+                log('URL 길이: ' + testUrl.length);
+                
+                // URL을 클립보드에 복사 (가능한 경우)
+                if (navigator.clipboard) {
+                    navigator.clipboard.writeText(testUrl).then(() => {
+                        log('URL이 클립보드에 복사되었습니다.');
+                    });
+                }
+            } else {
+                log('토큰이 없습니다.');
+            }
+        }
+        
+        // 초기 상태 확인
+        updateTokenStatus();
+        log('테스트 페이지가 로드되었습니다.');
+        
+        // 토큰 변경 감지
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'accessToken') {
+                updateTokenStatus();
+                log('토큰이 변경되었습니다.');
+            }
+        });
+    </script>
+</body>
+</html>

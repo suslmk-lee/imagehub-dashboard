@@ -1,0 +1,113 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: imagehub-dashboard-ingress
+  namespace: imagehub-dashboard
+  labels:
+    app: imagehub-dashboard
+  annotations:
+    # Ingress controller specific annotations
+    # Nginx Ingress Controller
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+    
+    # Basic CORS settings
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    
+    # Client body size (if large uploads are expected)
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    
+    # TLS/SSL annotations (commented out for HTTP testing)
+    # cert-manager.io/cluster-issuer: "letsencrypt-prod"  # If using cert-manager
+    # acme.cert-manager.io/http01-edit-in-place: "true"
+    
+    # Alternative ingress controllers annotations (uncomment as needed)
+    # Traefik
+    # traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    # traefik.ingress.kubernetes.io/router.tls: "true"
+    
+    # HAProxy
+    # haproxy.org/ssl-redirect: "true"
+    # haproxy.org/timeout-client: "30s"
+spec:
+  # Ingress class (adjust based on your cluster setup)
+  ingressClassName: nginx  # or "traefik", "haproxy", etc.
+  
+  # TLS configuration (commented out for HTTP testing)
+  # tls:
+  # - hosts:
+  #   - imagehub-dashboard.k-paas.org  # Replace with your actual domain
+  #   - dashboard.k-paas.org           # Alternative domain
+  #   secretName: imagehub-dashboard-tls
+  
+  # Routing rules
+  rules:
+  # Primary nip.io domain for easy access
+  - host: dashboard.133.186.152.47.nip.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: imagehub-dashboard-service
+            port:
+              number: 80
+  
+  # Local development (optional)
+  - host: localhost
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: imagehub-dashboard-service
+            port:
+              number: 80
+---
+# NetworkPolicy for additional security (optional)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: imagehub-dashboard-netpol
+  namespace: imagehub-dashboard
+  labels:
+    app: imagehub-dashboard
+spec:
+  podSelector:
+    matchLabels:
+      app: imagehub-dashboard
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    # Allow traffic from ingress controller namespace
+    - namespaceSelector:
+        matchLabels:
+          app.kubernetes.io/name: ingress-nginx  # Actual label on ingress-nginx namespace
+    # Allow traffic from same namespace
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: imagehub-dashboard
+    ports:
+    - protocol: TCP
+      port: 3000
+  egress:
+  # Allow DNS resolution
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  # Allow HTTPS outbound (for KeyCloak, etc.)
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 80
