@@ -33,7 +33,7 @@ log_error() {
 NAMESPACE="imagehub-dashboard"
 K8S_DIR="./k8s"
 IMAGE_TAG=${IMAGE_TAG:-"latest"}
-REGISTRY_URL=${REGISTRY_URL:-"registry-dev.k-paas.org"}
+REGISTRY_URL=${REGISTRY_URL:-"harbor.27.96.159.239.nip.io"}
 PROJECT_NAME="kpaas/imagehub-dashboard"
 DRY_RUN=${DRY_RUN:-false}
 SKIP_BUILD=${SKIP_BUILD:-false}

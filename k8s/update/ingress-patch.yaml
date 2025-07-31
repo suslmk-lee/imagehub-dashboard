@@ -1,0 +1,24 @@
+# Ingress patch to add imagehub-dashboard path to existing kps-public-image-hub-ingress
+# Usage: kubectl patch ingress kps-public-image-hub-ingress -n kps-hub --patch-file ingress-patch.yaml
+
+spec:
+  rules:
+  - host: hub.27.96.159.239.nip.io
+    http:
+      paths:
+      # ImageHub Dashboard path (must come first for proper routing)
+      - backend:
+          service:
+            name: imagehub-dashboard-service
+            port:
+              number: 80
+        path: /dashboard
+        pathType: Prefix
+      # Existing kps-public-image-hub-service (clean up duplicate, keep only one)
+      - backend:
+          service:
+            name: kps-public-image-hub-service
+            port:
+              number: 8095
+        path: /
+        pathType: Prefix

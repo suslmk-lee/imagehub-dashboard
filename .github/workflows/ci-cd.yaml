@@ -1,0 +1,164 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths-ignore:
+      - 'README.md'
+      - 'docs/**'
+      - '*.md'
+  pull_request:
+    branches:
+      - main
+      - develop
+
+env:
+  REGISTRY: harbor.27.96.159.239.nip.io
+  PROJECT: kpaas
+  IMAGE_NAME: imagehub-dashboard
+  KUBE_NAMESPACE: kps-hub
+
+jobs:
+  # 코드 품질 검사
+  lint-and-test:
+    runs-on: ubuntu-latest
+    name: Code Quality & Tests
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Run ESLint
+      run: npm run lint
+      
+    - name: Run type checking
+      run: npx tsc --noEmit
+      
+    # 테스트가 있다면 주석 해제
+    # - name: Run tests
+    #   run: npm test
+
+  # Docker 이미지 빌드 및 푸시
+  build-and-push:
+    runs-on: ubuntu-latest
+    name: Build & Push Docker Image
+    needs: lint-and-test
+    if: github.event_name == 'push'
+    
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+      image-digest: ${{ steps.build.outputs.digest }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: Login to Harbor Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ secrets.HARBOR_USERNAME }}
+        password: ${{ secrets.HARBOR_PASSWORD }}
+        
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.PROJECT }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+          
+    - name: Build and push
+      id: build
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        platforms: linux/amd64
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  # ArgoCD 동기화 (옵션)
+  deploy:
+    runs-on: ubuntu-latest
+    name: Update Kubernetes Manifests
+    needs: build-and-push
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Update image tag in deployment
+      run: |
+        # 새로운 이미지 태그 추출
+        NEW_TAG=$(echo "${{ needs.build-and-push.outputs.image-tag }}" | grep "sha-" | head -1)
+        if [ -z "$NEW_TAG" ]; then
+          NEW_TAG="${{ env.REGISTRY }}/${{ env.PROJECT }}/${{ env.IMAGE_NAME }}:latest"
+        fi
+        
+        echo "Updating image tag to: $NEW_TAG"
+        
+        # deployment.yaml에서 이미지 태그 업데이트
+        sed -i "s|image: ${{ env.REGISTRY }}/${{ env.PROJECT }}/${{ env.IMAGE_NAME }}:.*|image: $NEW_TAG|g" k8s/update/deployment.yaml
+        
+        # 변경사항 커밋
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add k8s/update/deployment.yaml
+        git commit -m "Update image tag to $NEW_TAG" || exit 0
+        git push
+
+  # ArgoCD Application 생성/업데이트
+  setup-argocd:
+    runs-on: ubuntu-latest
+    name: Setup ArgoCD Application
+    needs: build-and-push
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'latest'
+        
+    - name: Configure kubectl
+      run: |
+        # kubeconfig 설정 (secrets에서 가져오기)
+        echo "${{ secrets.KUBECONFIG }}" | base64 -d > $HOME/.kube/config
+        
+    - name: Apply ArgoCD Application
+      run: |
+        # ArgoCD Application 적용
+        kubectl apply -f argocd/
+        
+        # ArgoCD가 애플리케이션을 감지할 때까지 대기
+        echo "Waiting for ArgoCD to detect the application..."
+        sleep 30
+        
+        # ArgoCD CLI로 동기화 (선택사항)
+        # argocd app sync imagehub-dashboard --prune

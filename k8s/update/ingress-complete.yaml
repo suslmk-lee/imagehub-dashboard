@@ -1,0 +1,35 @@
+# Complete ingress configuration with imagehub-dashboard path added
+# This is the full ingress that replaces the existing one
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kps-public-image-hub-ingress
+  namespace: kps-hub
+  annotations:
+    kubernetes.io/ingress.class: nginx
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: hub.27.96.159.239.nip.io
+    http:
+      paths:
+      # ImageHub Dashboard path (specific path first)
+      - backend:
+          service:
+            name: imagehub-dashboard-service
+            port:
+              number: 80
+        path: /dashboard
+        pathType: Prefix
+      # Existing kps-public-image-hub-service (only one entry needed)
+      - backend:
+          service:
+            name: kps-public-image-hub-service
+            port:
+              number: 8095
+        path: /
+        pathType: Prefix
+  tls:
+  - hosts:
+    - hub.27.96.159.239.nip.io
+    secretName: kps-hub-tls

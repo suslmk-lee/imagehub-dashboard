@@ -1,0 +1,21 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# 리소스 목록
+resources:
+- project.yaml
+- application.yaml
+
+# 공통 레이블 추가
+commonLabels:
+  app.kubernetes.io/name: imagehub-dashboard
+  app.kubernetes.io/part-of: imagehub-dashboard
+  app.kubernetes.io/version: "1.0.0"
+  app.kubernetes.io/managed-by: argocd
+
+# 공통 어노테이션 추가
+commonAnnotations:
+  argocd.argoproj.io/managed-by: argocd
+  
+# 네임스페이스 설정
+namespace: argocd

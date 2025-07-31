@@ -4,6 +4,9 @@ const nextConfig: NextConfig = {
   // 프로덕션 빌드 최적화
   output: 'standalone',
   
+  // 서브패스 설정 (Ingress에서 /dashboard 경로 사용)
+  basePath: '/dashboard',
+  
   // Hydration 문제 해결을 위한 설정
   experimental: {
     optimizePackageImports: ['@/components', '@/contexts', '@/hooks'],

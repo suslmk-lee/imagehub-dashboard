@@ -22,7 +22,7 @@ data:
   APP_VERSION: "1.0.0"
   
   # Security settings
-  ALLOWED_ORIGINS: "https://registry-dev.k-paas.org,https://portal.133.186.152.47.nip.io,https://hub.133.186.152.47.nip.io"
+  ALLOWED_ORIGINS: "https://harbor.27.96.159.239.nip.io,https://portal.133.186.152.47.nip.io,https://hub.133.186.152.47.nip.io"
 ---
 # Secret for sensitive data (create this separately with actual values)
 apiVersion: v1

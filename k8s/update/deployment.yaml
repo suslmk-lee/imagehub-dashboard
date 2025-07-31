@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: imagehub-dashboard
-  namespace: imagehub-dashboard
+  namespace: kps-hub
   labels:
     app: imagehub-dashboard
     version: "1.0.0"
@@ -44,7 +44,7 @@ spec:
           containerPort: 3000
           protocol: TCP
         
-        # Environment variables from ConfigMap
+        # Environment variables from ConfigMap and Secret
         envFrom:
         - configMapRef:
             name: imagehub-dashboard-config
@@ -64,89 +64,53 @@ spec:
         # Health checks
         livenessProbe:
           httpGet:
-            path: /api/health
+            path: /dashboard/api/health
             port: http
             scheme: HTTP
           initialDelaySeconds: 30
           periodSeconds: 30
           timeoutSeconds: 5
-          successThreshold: 1
           failureThreshold: 3
+          successThreshold: 1
         
         readinessProbe:
           httpGet:
-            path: /api/health
+            path: /dashboard/api/health
             port: http
             scheme: HTTP
           initialDelaySeconds: 10
           periodSeconds: 10
           timeoutSeconds: 3
-          successThreshold: 1
           failureThreshold: 3
+          successThreshold: 1
         
-        # Startup probe (for slow-starting applications)
         startupProbe:
           httpGet:
-            path: /api/health
+            path: /dashboard/api/health
             port: http
             scheme: HTTP
           initialDelaySeconds: 10
           periodSeconds: 10
           timeoutSeconds: 3
-          successThreshold: 1
           failureThreshold: 10
+          successThreshold: 1
         
         # Security context for container
         securityContext:
-          allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: false
           runAsNonRoot: true
           runAsUser: 1001
-          seccompProfile:
-            type: RuntimeDefault
+          runAsGroup: 1001
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
           capabilities:
             drop:
             - ALL
-        
-        # Volume mounts (if needed)
-        # volumeMounts:
-        # - name: tmp
-        #   mountPath: /tmp
-        # - name: cache
-        #   mountPath: /app/.next/cache
       
-      # Volumes (if needed)
-      # volumes:
-      # - name: tmp
-      #   emptyDir: {}
-      # - name: cache
-      #   emptyDir: {}
+      # Restart policy
+      restartPolicy: Always
       
-      # Image pull secrets (if using private registry)
-      # imagePullSecrets:
-      # - name: registry-secret
+      # DNS policy
+      dnsPolicy: ClusterFirst
       
-      # Node selection (optional)
-      # nodeSelector:
-      #   kubernetes.io/os: linux
-      
-      # Tolerations (optional)
-      # tolerations:
-      # - key: "node-role.kubernetes.io/worker"
-      #   operator: "Equal"
-      #   value: "true"
-      #   effect: "NoSchedule"
-      
-      # Pod anti-affinity for high availability
-      affinity:
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - weight: 100
-            podAffinityTerm:
-              labelSelector:
-                matchExpressions:
-                - key: app
-                  operator: In
-                  values:
-                  - imagehub-dashboard
-              topologyKey: kubernetes.io/hostname
+      # Termination grace period
+      terminationGracePeriodSeconds: 30

@@ -1,0 +1,80 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: imagehub-dashboard-project
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: imagehub-dashboard-project
+    app.kubernetes.io/part-of: imagehub-dashboard
+spec:
+  description: "ImageHub Dashboard GitOps Project"
+  
+  # 소스 리포지토리 제한
+  sourceRepos:
+  - 'https://github.com/suslmk-lee/imagehub-dashboard.git'
+  - 'https://harbor.27.96.159.239.nip.io/chartrepo/kpaas'      # Harbor Chart Repository (필요시)
+  
+  # 배포 대상 제한
+  destinations:
+  - namespace: kps-hub
+    server: https://kubernetes.default.svc
+    name: in-cluster
+  
+  # 클러스터 리소스 허용 (ServiceAccount, ClusterRole 등)
+  clusterResourceWhitelist:
+  - group: ''
+    kind: 'Namespace'
+  - group: 'rbac.authorization.k8s.io'
+    kind: 'ClusterRole'
+  - group: 'rbac.authorization.k8s.io'
+    kind: 'ClusterRoleBinding'
+  
+  # 네임스페이스 리소스 허용
+  namespaceResourceWhitelist:
+  - group: ''
+    kind: 'ConfigMap'
+  - group: ''
+    kind: 'Secret'
+  - group: ''
+    kind: 'Service'
+  - group: ''
+    kind: 'ServiceAccount'
+  - group: 'apps'
+    kind: 'Deployment'
+  - group: 'networking.k8s.io'
+    kind: 'Ingress'
+  - group: 'networking.k8s.io'
+    kind: 'NetworkPolicy'
+  - group: 'autoscaling'
+    kind: 'HorizontalPodAutoscaler'
+  - group: 'policy'
+    kind: 'PodDisruptionBudget'
+  - group: 'rbac.authorization.k8s.io'
+    kind: 'Role'
+  - group: 'rbac.authorization.k8s.io'
+    kind: 'RoleBinding'
+  
+  
+  # 역할 및 권한 설정
+  roles:
+  - name: developer
+    description: "Developer access to ImageHub Dashboard"
+    policies:
+    - p, proj:imagehub-dashboard-project:developer, applications, get, imagehub-dashboard-project/*, allow
+    - p, proj:imagehub-dashboard-project:developer, applications, sync, imagehub-dashboard-project/*, allow
+    - p, proj:imagehub-dashboard-project:developer, applications, override, imagehub-dashboard-project/*, allow
+    - p, proj:imagehub-dashboard-project:developer, applications, action/*, imagehub-dashboard-project/*, allow
+    - p, proj:imagehub-dashboard-project:developer, repositories, get, *, allow
+    - p, proj:imagehub-dashboard-project:developer, logs, get, imagehub-dashboard-project/*, allow
+    groups:
+    - imagehub-dashboard:developers
+  
+  - name: admin
+    description: "Admin access to ImageHub Dashboard"
+    policies:
+    - p, proj:imagehub-dashboard-project:admin, applications, *, imagehub-dashboard-project/*, allow
+    - p, proj:imagehub-dashboard-project:admin, repositories, *, *, allow
+    - p, proj:imagehub-dashboard-project:admin, certificates, *, *, allow
+    - p, proj:imagehub-dashboard-project:admin, clusters, *, *, allow
+    groups:
+    - imagehub-dashboard:admins

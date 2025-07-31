@@ -1,0 +1,58 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: imagehub-dashboard
+  namespace: argocd
+  labels:
+    app: imagehub-dashboard
+    env: production
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: imagehub-dashboard-project
+  
+  # Git Repository 설정
+  source:
+    repoURL: https://github.com/suslmk-lee/imagehub-dashboard.git
+    targetRevision: HEAD  # 또는 특정 브랜치/태그
+    path: k8s/update  # Kubernetes 매니페스트가 있는 경로
+    
+  # 대상 클러스터 및 네임스페이스
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kps-hub
+  
+  # 동기화 정책
+  syncPolicy:
+    automated:
+      prune: true        # 삭제된 리소스 자동 정리
+      selfHeal: true     # 드리프트 자동 복구
+      allowEmpty: false  # 빈 매니페스트 허용 안함
+    syncOptions:
+      - CreateNamespace=false  # 네임스페이스는 이미 존재
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  
+  # 헬스체크 무시할 리소스 (필요시)
+  ignoreDifferences:
+  - group: apps
+    kind: Deployment
+    jsonPointers:
+    - /spec/replicas  # HPA가 관리하는 replicas 무시
+  
+  # 정보 표시
+  info:
+  - name: 'Description'
+    value: 'ImageHub Dashboard - Container Registry Management Interface'
+  - name: 'Environment'
+    value: 'Production'
+  - name: 'Namespace'
+    value: 'kps-hub'
